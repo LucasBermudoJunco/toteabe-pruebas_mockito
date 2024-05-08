@@ -8,12 +8,11 @@ import static org.mockito.Mockito.*;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
+import org.mockito.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class EmployeeManagerTest {
 
@@ -57,6 +56,15 @@ public class EmployeeManagerTest {
 	@Test
 	public void testPayEmployeesReturnZeroWhenNoEmployeesArePresent() {
 
+		Mockito.when(employeeRepository.findAll())
+			.thenReturn(new ArrayList<>());
+			// .thenReturn(Arrays.asList());
+			// .thenReturn(List.of());
+
+		assertThat(employeeManager.payEmployees()).isZero();
+
+		verifyNoMoreInteractions(bankService);
+
 	}
 
 	/**
@@ -71,6 +79,18 @@ public class EmployeeManagerTest {
 	 */
 	@Test
 	public void testPayEmployeesReturnOneWhenOneEmployeeIsPresentAndBankServicePayPaysThatEmployee() {
+
+		Mockito.when(employeeRepository.findAll())
+			// .thenReturn(new ArrayList<>());
+			.thenReturn(Arrays.asList(new Employee("1", 1000)));
+			// .thenReturn(List.of());
+
+		assertThat(employeeManager.payEmployees()).isEqualTo(1);
+
+		verify(bankService,times(1))
+				.pay("1",1000);
+
+		verifyNoMoreInteractions(bankService);
 
 	}
 
@@ -89,6 +109,33 @@ public class EmployeeManagerTest {
 	@Test
 	public void testPayEmployeesWhenSeveralEmployeeArePresent() {
 
+		Employee employee1 = Mockito.spy(new Employee("1",1000.0d));
+		Employee employee2 = Mockito.spy(new Employee("2",2000.0d));
+
+		List<Employee> list = Arrays.asList(employee1,employee2);
+
+		// Stub
+		when(employeeRepository.findAll()).thenReturn(list);
+
+		// Comprobación
+		assertThat(employeeManager.payEmployees()).isEqualTo(2);
+
+		// Verificaciones
+		verify(bankService,times(2)).pay(anyString(),anyDouble());
+
+		for(Employee employee : list){
+			verify(bankService,times(1)).pay(employee.getId(), employee.getSalary());
+
+			verify(employee).setPaid(true);
+
+			assertThat(employee.isPaid()).isTrue();
+		}
+
+		verify(bankService,times(1)).pay("1",1000.0);
+		verify(bankService,times(1)).pay("2",2000.0);
+
+		verifyNoMoreInteractions(bankService);
+
 	}
 
 	/**
@@ -104,6 +151,25 @@ public class EmployeeManagerTest {
 	@Test
 	public void testPayEmployeesInOrderWhenSeveralEmployeeArePresent() {
 
+		Employee employee1 = Mockito.spy(new Employee("1",1000.0d));
+		Employee employee2 = Mockito.spy(new Employee("2",2000.0d));
+
+		List<Employee> list = Arrays.asList(employee1,employee2);
+
+		// Stub
+		when(employeeRepository.findAll()).thenReturn(list);
+
+		// Comprobación
+		assertThat(employeeManager.payEmployees()).isEqualTo(2);
+
+		// Verificaciones
+		InOrder inOrder = inOrder(bankService);
+
+		inOrder.verify(bankService).pay("1",1000.0);
+		inOrder.verify(bankService).pay("2",2000.0);
+
+		inOrder.verifyNoMoreInteractions();
+
 	}
 
 	/**
@@ -116,6 +182,27 @@ public class EmployeeManagerTest {
 	 */
 	@Test
 	public void testExampleOfInOrderWithTwoMocks() {
+
+		Employee employee1 = Mockito.spy(new Employee("1",1000.0d));
+		Employee employee2 = Mockito.spy(new Employee("2",2000.0d));
+
+		List<Employee> list = Arrays.asList(employee1,employee2);
+
+		// Stub
+		when(employeeRepository.findAll()).thenReturn(list);
+
+		// Comprobación
+		assertThat(employeeManager.payEmployees()).isEqualTo(2);
+
+		// Verificaciones
+		InOrder inOrder = inOrder(employeeRepository, bankService);
+
+		inOrder.verify(employeeRepository).findAll();
+
+		inOrder.verify(bankService).pay("1",1000.0);
+		inOrder.verify(bankService).pay("2",2000.0);
+
+		inOrder.verifyNoMoreInteractions();
 
 	}
 
