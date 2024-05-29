@@ -222,7 +222,29 @@ public class EmployeeManagerTest {
 	 */
 	@Test
 	public void testExampleOfArgumentCaptor() {
+		Employee employee1 = Mockito.spy(new Employee("1",1000.0d));
+		Employee employee2 = Mockito.spy(new Employee("2",2000.0d));
 
+		List<Employee> list = Arrays.asList(employee1,employee2);
+
+		// Stub
+		when(employeeRepository.findAll()).thenReturn(list);
+
+		// 1ª Comprobación
+		assertThat(employeeManager.payEmployees()).isEqualTo(2);
+
+		// Verificaciones
+		verify(bankService, times(2)).pay(idCaptor.capture(),amountCaptor.capture());
+
+		// 2ª Comprobación de los valores de los captor
+		List<String> idsCapturados = idCaptor.getAllValues();
+		List<Double> amountsCapturados = amountCaptor.getAllValues();
+
+		assertThat(idsCapturados).containsExactly("1","2");
+		assertThat(amountsCapturados).containsExactly(1000.0,2000.0);
+
+		// No más interacciones
+		verifyNoMoreInteractions(bankService);
 	}
 
 	/**
@@ -236,7 +258,20 @@ public class EmployeeManagerTest {
 	 */
 	@Test
 	public void testEmployeeSetPaidIsCalledAfterPaying() {
+		// Stub
+//		when(toBePaid.isPaid()).thenReturn(true);
+		when(employeeRepository.findAll()).thenReturn(Arrays.asList(toBePaid));
 
+		// Comprobación de los Stubs
+//		assertThat(toBePaid.isPaid()).isTrue();
+		assertThat(employeeManager.payEmployees()).isEqualTo(1);
+
+		// Verificaciones
+		InOrder inOrder = inOrder(bankService, toBePaid);
+
+		inOrder.verify(bankService).pay(toBePaid.getId(), toBePaid.getSalary());
+
+		inOrder.verify(toBePaid).setPaid(true);
 	}
 
 
@@ -254,7 +289,15 @@ public class EmployeeManagerTest {
 	 */
 	@Test
 	public void testPayEmployeesWhenBankServiceThrowsException() {
+		// Stub
+		when(employeeRepository.findAll()).thenReturn(Arrays.asList(notToBePaid));
+		doThrow(RuntimeException.class).when(bankService).pay(anyString(),anyDouble());
 
+		// Comprobación del Stub
+		assertThat(employeeManager.payEmployees()).isEqualTo(0);
+
+		// Verificación
+		verify(notToBePaid).setPaid(false);
 	}
 
 	/**
@@ -272,11 +315,45 @@ public class EmployeeManagerTest {
 	 */
 	@Test
 	public void testOtherEmployeesArePaidWhenBankServiceThrowsException() {
+		// Stub
+		when(employeeRepository.findAll()).thenReturn(Arrays.asList(notToBePaid,toBePaid));
+		doThrow(RuntimeException.class).doNothing().when(bankService).pay(anyString(),anyDouble());
+
+		// Comprobación
+		assertThat(employeeManager.payEmployees()).isEqualTo(1);
+
+		// Verificaciones
+		verify(notToBePaid).setPaid(false);
+		verify(toBePaid).setPaid(true);
 	}
 
+	/**
+	 * Descripcion del test:
+	 * 	Crea un stub when-thenReturn para employeeRepository.findAll que devuelva
+	 * 	una coleccion 2 Employee con el spy de atributo de la clase notToBePaid y toBePaid.
+	 * 	Seguidamente, crea un stub con encademaniento para 2 llamadas doThrow-when emplea argThat
+	 *  argThat(s -> s.equals("1")), anyDouble como firma de invocacion en el stub para pay
+	 * 	de modo que en la primera invocacion de pay (para notToBePaid) se lance una RuntimeException
+	 * 	y en la segunda invocacion de pay (para toBePaid) no haga nada. El metodo pay acepta cualquier argumento
+	 * 	indicado mediante ArgumentMatcher any.
+	 * 	Comprueba que al invocar employeeManager.payEmployees se paga a solo 1 Employee.
+	 *  A continuacion, verifica las interacciones (verify) sobre el spy notToBePaid primer mock de la coleccion
+	 *  para el que se lanza la RuntimeException y el spy toBePaid segundo mock de la coleccion que si recibe el pago
+	 *  chequeando la interaccion con el metodo setPaid a false y true respectivamente.
+	 */
 	@Test
 	public void testArgumentMatcherExample() {
-		
+		// Stubs
+		when(employeeRepository.findAll()).thenReturn(Arrays.asList(notToBePaid,toBePaid));
+		doThrow(RuntimeException.class).when(bankService).pay(argThat(s -> s.equals("1")),anyDouble());
+		doNothing().when(bankService).pay(argThat(s -> s.equals("2")),anyDouble());
+
+		// Comprobación
+		assertThat(employeeManager.payEmployees()).isEqualTo(1);
+
+		// Verificaciones
+		verify(notToBePaid).setPaid(false);
+		verify(toBePaid).setPaid(true);
 	}
 
 }
